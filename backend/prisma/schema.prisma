@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // or "postgresql"
+  url      = "file:./dev.db"
+}
+
+model Course {
+  id         Int      @id @default(autoincrement())
+  title      String
+  instructor String
+  rating     Float
+  students   Int
+  duration   String
+  category   String
+  image      String
+  level      String
+  description String
+  bestseller Boolean
+  modules    Module[]
+}
+
+model Module {
+  id        Int      @id @default(autoincrement())
+  title     String
+  duration  String
+  courseId  Int
+  videos    Video[]
+  course    Course   @relation(fields: [courseId], references: [id])
+}
+
+model Video {
+  id          Int    @id @default(autoincrement())
+  title       String
+  duration    String
+  description String
+  moduleId    Int
+  module      Module @relation(fields: [moduleId], references: [id])
+}
