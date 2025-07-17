@@ -1,109 +1,60 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 
-type Video = {
+interface Video {
   id: number;
   title: string;
   url: string;
-};
+}
 
-type Module = {
+interface Module {
   id: number;
   title: string;
-  videos: Video[];
-};
+  Video: Video[]; // Supabase returns capital V
+}
 
-type Course = {
+interface Course {
   id: number;
   title: string;
-  modules: Module[];
-};
+  instructor: string;
+  Module: Module[]; // Supabase returns capital M
+}
 
-const CourseModule: React.FC = () => {
-  const { id } = useParams();
-  const [courseData, setCourseData] = useState<Course | null>(null);
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
-  const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
+const CourseModule = () => {
+  const { id } = useParams<{ id: string }>();
+  const [course, setCourse] = useState<Course | null>(null);
 
   useEffect(() => {
     axios.get(`http://localhost:3001/courses/${id}`)
-      .then(res => {
-        setCourseData(res.data);
-        setSelectedVideo(res.data.modules?.[0]?.videos?.[0] || null);
-        const expanded = new Set<number>(res.data.modules.map((m: Module) => m.id));
-
-        setExpandedModules(expanded);
-      })
+      .then(res => setCourse(res.data))
       .catch(err => console.error(err));
   }, [id]);
 
-  const toggleModule = (moduleId: number) => {
-    const updated = new Set(expandedModules);
-    updated.has(moduleId) ? updated.delete(moduleId) : updated.add(moduleId);
-    setExpandedModules(updated);
-  };
-
-  if (!courseData) return <div className="p-8">Loading course...</div>;
+  if (!course) return <div className="p-6">Loading...</div>;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-6 bg-custom-gray-light min-h-screen">
-      {/* Left Sidebar */}
-      <div className="col-span-1 bg-white shadow rounded-lg p-4 h-fit sticky top-4">
-        <h2 className="text-xl font-bold mb-4 text-custom-blue-dark">{courseData.title}</h2>
+    <div className="p-6 bg-custom-gray-light min-h-screen">
+      <h1 className="text-3xl font-bold mb-4 text-custom-blue-dark">{course.title}</h1>
+      <p className="mb-6 text-lg text-custom-gray-text">Instructor: {course.instructor}</p>
 
-        {courseData.modules.map((module) => (
-          <div key={module.id} className="mb-4">
-            <button
-              onClick={() => toggleModule(module.id)}
-              className="flex justify-between items-center w-full text-left font-semibold text-custom-gray-text mb-2"
-            >
-              {module.title}
-              {expandedModules.has(module.id) ? (
-                <ChevronDown size={18} />
-              ) : (
-                <ChevronRight size={18} />
-              )}
-            </button>
-            {expandedModules.has(module.id) && (
-              <ul className="pl-4 space-y-2">
-                {module.videos.map((video) => (
-                  <li key={video.id}>
-                    <button
-                      onClick={() => setSelectedVideo(video)}
-                      className={`text-left text-sm w-full ${
-                        selectedVideo?.id === video.id ? 'text-custom-orange font-bold' : 'text-custom-gray-text'
-                      } hover:underline`}
-                    >
-                      🎬 {video.title}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
-      </div>
+      {course.Module?.map((mod) => (
+        <div key={mod.id} className="mb-6 bg-white rounded-lg p-4 shadow">
+          <h2 className="text-xl font-semibold mb-2 text-custom-blue-dark">{mod.title}</h2>
 
-      {/* Right Video Panel */}
-      <div className="col-span-1 lg:col-span-3 bg-white shadow rounded-lg p-6">
-        {selectedVideo ? (
-          <>
-            <h3 className="text-xl font-semibold mb-4 text-custom-blue-dark">{selectedVideo.title}</h3>
-            <div className="aspect-video mb-6">
+          {mod.Video?.map(video => (
+            <div key={video.id} className="mb-4">
+              <p className="font-medium text-custom-gray-text mb-1">{video.title}</p>
               <iframe
-                src={selectedVideo.url}
-                title={selectedVideo.title}
-                className="w-full h-full rounded-lg"
+                src={video.url.replace('watch?v=', 'embed/')}
+                title={video.title}
                 allowFullScreen
+                className="w-full h-64 rounded-lg shadow"
               />
             </div>
-          </>
-        ) : (
-          <p>Select a video to start learning.</p>
-        )}
-      </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 };

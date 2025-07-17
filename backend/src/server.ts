@@ -1,50 +1,45 @@
-import express from 'express';
+import express, { RequestHandler } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import { supabase } from './supabase';
 
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
-
 app.use(cors());
 app.use(express.json());
 
 // GET all courses
-app.get('/courses', async (req, res) => {
-  try {
-    const courses = await prisma.course.findMany();
-    res.json(courses);
-  } catch (err) {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Failed to fetch courses' });
+const getCourses: RequestHandler = async (req, res) => {
+  const { data, error } = await supabase.from('Course').select('*');
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
   }
-});
+  res.json(data);
+};
 
-// GET course by ID
-app.get('/courses/:id', (req, res) => {
-  const courseId = parseInt(req.params.id, 10);
+// ✅ GET course by ID with modules and videos
+const getCourseById: RequestHandler = async (req, res) => {
+  const { id } = req.params;
 
-  prisma.course.findUnique({
-    where: { id: courseId },
-    include: {
-      modules: {
-        include: {
-          videos: true
-        }
-      }
-    }
-  }).then(course => {
-    if (!course) {
-      return res.status(404).json({ error: 'Course not found' });
-    }
-    res.json(course);
-  }).catch(error => {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to fetch course' });
-  });
-});
+  const { data, error } = await supabase
+    .from('Course')
+    .select('*, Module(*, Video(*))') // nested fetch
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json(data);
+};
+
+app.get('/courses', getCourses);
+app.get('/courses/:id', getCourseById);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
