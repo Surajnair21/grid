@@ -1,4 +1,4 @@
-import express, { RequestHandler } from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { supabase } from './supabase';
@@ -9,37 +9,89 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// GET all courses
-const getCourses: RequestHandler = async (req, res) => {
-  const { data, error } = await supabase.from('Course').select('*');
-  if (error) {
-    res.status(500).json({ error: error.message });
-    return;
-  }
-  res.json(data);
-};
+// Get all courses
+function getCourses(req: Request, res: Response) {
+  supabase.from('Course').select('*').then(({ data, error }) => {
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  });
+}
 
-// ✅ GET course by ID with modules and videos
-const getCourseById: RequestHandler = async (req, res) => {
+// Get one course by ID with modules and videos
+function getCourseById(req: Request, res: Response) {
   const { id } = req.params;
 
-  const { data, error } = await supabase
+  supabase
     .from('Course')
-    .select('*, Module(*, Video(*))') // nested fetch
+    .select('*, Module(*, Video(*))')
     .eq('id', id)
-    .single();
+    .single()
+    .then(({ data, error }) => {
+      if (error) return res.status(500).json({ error: error.message });
+      res.json(data);
+    });
+}
 
-  if (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-    return;
-  }
+// Create course
+function createCourse(req: Request, res: Response) {
+  const { title, instructor, category, image, rating, students, duration, description } = req.body;
 
-  res.json(data);
-};
+  supabase
+    .from('Course')
+    .insert([{ title, instructor, category, image, rating, students, duration, description }])
+    .then(({ data, error }) => {
+      if (error) return res.status(500).json({ error: error.message });
+      res.status(201).json(data);
+    });
+}
 
+// Create module
+function createModule(req: Request, res: Response) {
+  const { title, course_id } = req.body;
+
+  supabase
+    .from('Module')
+    .insert([{ title, course_id }])
+    .then(({ data, error }) => {
+      if (error) return res.status(500).json({ error: error.message });
+      res.status(201).json(data);
+    });
+}
+
+// Create video
+function createVideo(req: Request, res: Response) {
+  const { title, url, module_id } = req.body;
+
+  supabase
+    .from('Video')
+    .insert([{ title, url, module_id }])
+    .then(({ data, error }) => {
+      if (error) return res.status(500).json({ error: error.message });
+      res.status(201).json(data);
+    });
+}
+
+// Get modules for a course
+function getModulesByCourseId(req: Request, res: Response) {
+  const { courseId } = req.params;
+
+  supabase
+    .from('Module')
+    .select('*')
+    .eq('course_id', courseId)
+    .then(({ data, error }) => {
+      if (error) return res.status(500).json({ error: error.message });
+      res.json(data);
+    });
+}
+
+// Routes
 app.get('/courses', getCourses);
 app.get('/courses/:id', getCourseById);
+app.post('/courses', createCourse);
+app.post('/modules', createModule);
+app.get('/modules/:courseId', getModulesByCourseId);
+app.post('/videos', createVideo);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
